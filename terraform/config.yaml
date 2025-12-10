@@ -1,0 +1,203 @@
+# GCP Infrastructure Configuration for Delhi Region (asia-south2)
+# Environment-specific subnet architecture
+
+project:
+  id: "variphi"
+  region: "asia-south2"  # Delhi
+  zones:
+    - "asia-south2-a"
+    - "asia-south2-b"
+    - "asia-south2-c"
+
+vpc:
+  name: "main-vpc"
+  description: "Main VPC for microservices architecture"
+  auto_create_subnetworks: false
+  routing_mode: "REGIONAL"
+  
+  subnets:
+    prod_frontend:
+      name: "prod-frontend-subnet"
+      description: "Production frontend subnet (public)"
+      cidr: "10.10.1.0/24"
+      region: "asia-south2"
+      enable_flow_logs: true
+      
+    prod_backend:
+      name: "prod-backend-subnet"
+      description: "Production backend subnet (private)"
+      cidr: "10.10.2.0/24"
+      region: "asia-south2"
+      enable_flow_logs: true
+      
+    prod_db:
+      name: "prod-db-subnet"
+      description: "Production database subnet (private) - CloudSQL, MongoDB, Redis"
+      cidr: "10.10.3.0/24"
+      region: "asia-south2"
+      enable_flow_logs: true
+      
+    staging_frontend:
+      name: "staging-frontend-subnet"
+      description: "Staging frontend subnet (public)"
+      cidr: "10.10.10.0/24"
+      region: "asia-south2"
+      enable_flow_logs: true
+      
+    staging_backend:
+      name: "staging-backend-subnet"
+      description: "Staging backend subnet (private)"
+      cidr: "10.10.11.0/24"
+      region: "asia-south2"
+      enable_flow_logs: true
+      
+    staging_db:
+      name: "staging-db-subnet"
+      description: "Staging database subnet (private) - CloudSQL, MongoDB, Redis"
+      cidr: "10.10.12.0/24"
+      region: "asia-south2"
+      enable_flow_logs: true
+      
+    shared_infra:
+      name: "shared-infra-subnet"
+      description: "Shared infrastructure subnet (private) - NAT, Cloud Router, CI/CD agents, Monitoring"
+      cidr: "10.10.20.0/24"
+      region: "asia-south2"
+      enable_flow_logs: true
+
+nat:
+  name: "main-nat"
+  router_name: "main-router"
+  region: "asia-south2"
+
+gke:
+  clusters:
+    # Production cluster - uses prod-backend-subnet, has both frontend and backend node pools
+    prod:
+      name: "gke-prod"
+      description: "Production GKE cluster for all workloads (frontend and backend)"
+      region: "asia-south2"
+      zones:
+        - "asia-south2-a"
+        - "asia-south2-b"
+      network: "main-vpc"
+      subnetwork: "prod-backend-subnet"
+      enable_private_nodes: true  # Private nodes for security
+      enable_private_endpoint: false
+      master_authorized_networks: []
+      enable_autopilot: false
+      release_channel: "REGULAR"
+      master_ipv4_cidr_block: "172.16.0.0/28"  # gke-prod-master-cidr
+      
+      node_pools:
+        frontend:
+          name: "frontend-pool"
+          initial_node_count: 1
+          min_node_count: 1
+          max_node_count: 5
+          machine_type: "e2-standard-2"
+          disk_size_gb: 50
+          disk_type: "pd-standard"
+          labels:
+            pool: "frontend"
+            environment: "production"
+        backend:
+          name: "backend-pool"
+          initial_node_count: 1
+          min_node_count: 1
+          max_node_count: 10
+          machine_type: "e2-standard-4"
+          disk_size_gb: 50
+          disk_type: "pd-standard"
+          labels:
+            pool: "backend"
+            environment: "production"
+    
+    # Staging cluster - uses staging-backend-subnet, has both frontend and backend node pools
+    staging:
+      name: "gke-staging"
+      description: "Staging GKE cluster for all workloads (frontend and backend)"
+      region: "asia-south2"
+      zones:
+        - "asia-south2-a"
+        - "asia-south2-b"
+      network: "main-vpc"
+      subnetwork: "staging-backend-subnet"
+      enable_private_nodes: true  # Private nodes for security
+      enable_private_endpoint: false
+      master_authorized_networks: []
+      enable_autopilot: false
+      release_channel: "REGULAR"
+      master_ipv4_cidr_block: "172.16.1.0/28"  # gke-staging-master-cidr
+      
+      node_pools:
+        frontend:
+          name: "frontend-pool"
+          initial_node_count: 1
+          min_node_count: 1
+          max_node_count: 3
+          machine_type: "e2-standard-2"
+          disk_size_gb: 50
+          disk_type: "pd-standard"
+          labels:
+            pool: "frontend"
+            environment: "staging"
+        backend:
+          name: "backend-pool"
+          initial_node_count: 1
+          min_node_count: 1
+          max_node_count: 5
+          machine_type: "e2-standard-2"
+          disk_size_gb: 50
+          disk_type: "pd-standard"
+          labels:
+            pool: "backend"
+            environment: "staging"
+
+artifact_registry:
+  repositories:
+    - name: "variphi-artifacts"
+      description: "Docker images for all workloads (microservices, microfrontend, CI/CD)"
+      format: "DOCKER"
+      location: "asia-south2"
+
+firewall_rules:
+  - name: "allow-ssh"
+    description: "Allow SSH from anywhere"
+    direction: "INGRESS"
+    priority: 1000
+    source_ranges: ["0.0.0.0/0"]
+    allowed:
+      - protocol: "tcp"
+        ports: ["22"]
+        
+  - name: "allow-http"
+    description: "Allow HTTP traffic"
+    direction: "INGRESS"
+    priority: 1000
+    source_ranges: ["0.0.0.0/0"]
+    allowed:
+      - protocol: "tcp"
+        ports: ["80"]
+        
+  - name: "allow-https"
+    description: "Allow HTTPS traffic"
+    direction: "INGRESS"
+    priority: 1000
+    source_ranges: ["0.0.0.0/0"]
+    allowed:
+      - protocol: "tcp"
+        ports: ["443"]
+        
+  - name: "allow-internal"
+    description: "Allow all internal traffic"
+    direction: "INGRESS"
+    priority: 1000
+    source_ranges: ["10.10.0.0/16", "10.20.0.0/20", "10.20.32.0/20", "10.21.0.0/20", "10.21.32.0/20"]  # VPC, all pod secondary ranges (prod-frontend, prod-backend, staging-backend, staging-frontend)
+    allowed:
+      - protocol: "tcp"
+        ports: ["0-65535"]
+      - protocol: "udp"
+        ports: ["0-65535"]
+      - protocol: "icmp"
+        ports: []

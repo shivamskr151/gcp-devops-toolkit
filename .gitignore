@@ -1,0 +1,37 @@
+# Service Account Keys (Sensitive)
+terraform-sa-key.json
+*-sa-key.json
+*.json.key
+
+# Terraform State Files
+*.tfstate
+*.tfstate.*
+terraform.tfstate
+terraform.tfstate.backup
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+
+# Logs
+*.log
+

@@ -1,0 +1,150 @@
+# GCP Infrastructure Configuration for Delhi Region (asia-south1)
+# This YAML file contains all infrastructure configuration
+
+project:
+  id: "variphi"
+  region: "asia-south1"  # Delhi
+  zones:
+    - "asia-south1-a"
+    - "asia-south1-b"
+    - "asia-south1-c"
+
+vpc:
+  name: "main-vpc"
+  description: "Main VPC for microservices architecture"
+  auto_create_subnetworks: false
+  routing_mode: "REGIONAL"
+  
+  subnets:
+    public:
+      name: "public-subnet"
+      description: "Public subnet for frontend node pool"
+      cidr: "10.0.1.0/24"
+      region: "asia-south1"
+      enable_flow_logs: true
+      
+    private:
+      name: "private-subnet"
+      description: "Private subnet for backend node pool"
+      cidr: "10.0.2.0/24"
+      region: "asia-south1"
+      enable_flow_logs: true
+      
+    db:
+      name: "db-subnet"
+      description: "Private subnet for CloudSQL, MongoDB, Redis"
+      cidr: "10.0.3.0/24"
+      region: "asia-south1"
+      enable_flow_logs: true
+      
+    shared:
+      name: "shared-subnet"
+      description: "Shared subnet for monitoring, logging, CI/CD agents"
+      cidr: "10.0.4.0/24"
+      region: "asia-south1"
+      enable_flow_logs: true
+      
+    gke_peering:
+      name: "gke-peering-subnet"
+      description: "Subnet for GKE private endpoint peering"
+      cidr: "10.0.5.0/24"
+      region: "asia-south1"
+      enable_flow_logs: true
+
+nat:
+  name: "main-nat"
+  router_name: "main-router"
+  region: "asia-south1"
+
+gke:
+  clusters:
+    prod:
+      name: "gke-prod"
+      description: "Production GKE cluster"
+      region: "asia-south1"
+      zones:
+        - "asia-south1-a"
+        - "asia-south1-b"
+      network: "main-vpc"
+      subnetwork: "private-subnet"
+      initial_node_count: 3
+      min_node_count: 3
+      max_node_count: 10
+      machine_type: "e2-standard-4"
+      disk_size_gb: 50
+      disk_type: "pd-standard"
+      enable_private_nodes: false  # Set to false to avoid auto-created pe-subnets
+      enable_private_endpoint: false
+      master_authorized_networks: []
+      enable_autopilot: false
+      release_channel: "REGULAR"
+      
+    staging:
+      name: "gke-staging"
+      description: "Staging GKE cluster"
+      region: "asia-south1"
+      zones:
+        - "asia-south1-a"
+        - "asia-south1-b"
+      network: "main-vpc"
+      subnetwork: "private-subnet"
+      initial_node_count: 2
+      min_node_count: 2
+      max_node_count: 5
+      machine_type: "e2-standard-2"
+      disk_size_gb: 50
+      disk_type: "pd-standard"
+      enable_private_nodes: false  # Set to false to avoid auto-created pe-subnets
+      enable_private_endpoint: false
+      master_authorized_networks: []
+      enable_autopilot: false
+      release_channel: "REGULAR"
+
+artifact_registry:
+  repositories:
+    - name: "docker-images"
+      description: "Docker images for all workloads (microservices, microfrontend, CI/CD)"
+      format: "DOCKER"
+      location: "asia-south1"
+
+firewall_rules:
+  - name: "allow-ssh"
+    description: "Allow SSH from anywhere"
+    direction: "INGRESS"
+    priority: 1000
+    source_ranges: ["0.0.0.0/0"]
+    allowed:
+      - protocol: "tcp"
+        ports: ["22"]
+        
+  - name: "allow-http"
+    description: "Allow HTTP traffic"
+    direction: "INGRESS"
+    priority: 1000
+    source_ranges: ["0.0.0.0/0"]
+    allowed:
+      - protocol: "tcp"
+        ports: ["80"]
+        
+  - name: "allow-https"
+    description: "Allow HTTPS traffic"
+    direction: "INGRESS"
+    priority: 1000
+    source_ranges: ["0.0.0.0/0"]
+    allowed:
+      - protocol: "tcp"
+        ports: ["443"]
+        
+  - name: "allow-internal"
+    description: "Allow all internal traffic"
+    direction: "INGRESS"
+    priority: 1000
+    source_ranges: ["10.0.0.0/16"]
+    allowed:
+      - protocol: "tcp"
+        ports: ["0-65535"]
+      - protocol: "udp"
+        ports: ["0-65535"]
+      - protocol: "icmp"
+        ports: []
+
